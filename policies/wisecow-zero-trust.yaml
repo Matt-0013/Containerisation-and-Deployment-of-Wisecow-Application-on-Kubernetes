@@ -8,54 +8,37 @@ spec:
     matchLabels:
       app: wisecow
 
-  # Block by default (deny everything not explicitly allowed)
   action: Block
 
   severity: 10
   message: "Zero-trust policy for Wisecow: only the app and its minimal dependencies allowed"
 
-  # -----------------
-  # FILE rules
-  # -----------------
   file:
-    # allow the app script and the response FIFO file
     matchPaths:
       - path: /app/wisecow.sh
         action: Allow
       - path: /app/response
         action: Allow
-      # allow app-specific config/logs if you use them
       - path: /app/config/*
         action: Allow
       - path: /app/logs/*
         action: Allow
-      # allow the binaries used by the app (fortune/cowsay)
       - path: /usr/games/fortune
         action: Allow
       - path: /usr/games/cowsay
         action: Allow
-      # allow the nc binary (netcat) used by the app
       - path: /bin/nc
         action: Allow
       - path: /usr/bin/nc
         action: Allow
-
-    # default deny everything else under root
     matchDirectories:
       - dir: /
         recursive: true
         action: Block
-
-  # -----------------
-  # PROCESS rules
-  # -----------------
   process:
-    # allow the processes used by the app
     matchPaths:
-      # allow execution of the script name (execname); the container runs "bash wisecow.sh"
       - execname: wisecow.sh
         action: Allow
-      # allow /bin/bash only when it executes the app (we use execname for script and allow nc)
       - execname: bash
         action: Allow
       - execname: fortune
@@ -64,41 +47,19 @@ spec:
         action: Allow
       - execname: nc
         action: Allow
-
-    # block any other processes across the filesystem by default
     matchDirectories:
       - dir: /
         recursive: true
         action: Block
 
-  # -----------------
-  # NETWORK rules
-  # -----------------
-  # Allow only the listening binary (nc) to use TCP; block other protocols.
-  # Note: network enforcement depends on LSM/BPF support in the kernel and KubeArmor enforcer capabilities.
   network:
     matchProtocols:
-      # allow tcp operations ONLY when source process is netcat (nc)
       - protocol: tcp
         fromSource:
           - path: /bin/nc
           - path: /usr/bin/nc
         action: Allow
-
-      # block other network protocols (UDP/ICMP) explicitly
       - protocol: udp
         action: Block
       - protocol: icmp
         action: Block
-
-  # -----------------
-  # Optional: Syscall rules (example)
-  # -----------------
-  # You can add syscall-level blocking for destructive syscalls if needed.
-  # syscalls:
-  #   matchSyscalls:
-  #     - syscall:
-  #       - unlink
-  #       - rmdir
-  #   action: Audit
-
